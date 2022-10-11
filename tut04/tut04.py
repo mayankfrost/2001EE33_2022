@@ -107,7 +107,7 @@ def octant_longest_subsequence_count_with_range():
         else:
             length = 1
 
-        if sub_len[oc] == length:  # using the current length to update the subsequence length and count
+        if sub_len[oc] == length:  # using the current length to update the subsequence length, count and time ranges
             sub_cnt[oc] += 1
             ranges[oc].append([data['Time'][i - length + 1], data['Time'][i]])
 
@@ -142,6 +142,8 @@ def octant_longest_subsequence_count_with_range():
 
     data['  '] = emp_col
 
+    # Reusing the 3 lists since we don't their older values have already been copied to the pandas dataframe
+
     oc_col.clear()
     len_col.clear()
     cnt_col.clear()
@@ -149,7 +151,7 @@ def octant_longest_subsequence_count_with_range():
     for i in vals:
         oc_col.append(str(i) if i < 0 else '+' + str(i))
         oc_col.append('TIme')
-        oc_col.extend([''] * len(ranges[i]))
+        oc_col.extend([''] * len(ranges[i]))  # leaving an appropriate amount of empty lines
 
         len_col.append(sub_len[i])
         len_col.append('From')
