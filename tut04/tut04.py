@@ -6,7 +6,10 @@ start_time = datetime.now()
 
 
 def octant_longest_subsequence_count_with_range():
-    data = pd.read_excel('input_octant_longest_subsequence_with_range.xlsx')
+    try:  # checking if file can be opened
+        data = pd.read_excel('input_octant_longest_subsequence_with_range.xlsx')
+    except:
+        print("Couldn't open mentioned file")
 
     total = data['U'].shape[0]  # total number of coordinates
 
