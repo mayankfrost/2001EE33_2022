@@ -9,7 +9,10 @@ def octant_range_names(mod=5000):
                               "2": "External Ejection", "-2": "Internal Ejection", "3": "External inward interaction",
                               "-3": "Internal inward interaction", "4": "Internal sweep", "-4": "External sweep"}
 
-    data = pd.read_excel('octant_input.xlsx')
+    try:  # checking if file can be opened
+        data = pd.read_excel('octant_input.xlsx')
+    except:
+        print("Couldn't open mentioned file")
 
     total = data['U'].shape[0]  # total number of coordinates
 
@@ -17,14 +20,23 @@ def octant_range_names(mod=5000):
     v_avg = 0
     w_avg = 0
 
-    for i in data['U']:
-        u_avg += i
+    try:
+        for i in data['U']:
+            u_avg += i
+    except TypeError:
+        print("Column of U has some data type besides int and float")
 
-    for i in data['V']:
-        v_avg += i
+    try:
+        for i in data['V']:
+            v_avg += i
+    except TypeError:
+        print("Column of V has some data type besides int and float")
 
-    for i in data['W']:
-        w_avg += i
+    try:
+        for i in data['W']:
+            w_avg += i
+    except TypeError:
+        print("Column of W has some data type besides int and float")
 
     u_avg /= total  # finding out the averages
     v_avg /= total
@@ -118,10 +130,10 @@ def octant_range_names(mod=5000):
     order = []
     for i in vals:
         order.append([cnt[i][0], i])
-    order.sort(reverse=True)
+    order.sort(reverse=True)  # arranging the octant values in order of their occurences at different timestamps
 
     for i in range(8):
-        rank[order[i][1]][0] = i + 1
+        rank[order[i][1]][0] = i + 1  # assigning ranks according to the order
 
     r1_id = [order[0][1], '']
 
@@ -129,12 +141,12 @@ def octant_range_names(mod=5000):
         order.clear()
         for j in vals:
             order.append([cnt[j][i + 2], j])
-        order.sort(reverse=True)
+        order.sort(reverse=True)  # arranging the octant values in order of their occurences at different timestamps
 
         r1_id.append(order[0][1])
-        scores[order[0][1]] += 1
+        scores[order[0][1]] += 1  # incrementing the score of rank 1.
         for j in range(8):
-            rank[order[j][1]][i + 2] = j + 1
+            rank[order[j][1]][i + 2] = j + 1  # assigning ranks according to the order
 
     r1_on = []
     for i in r1_id:
@@ -148,7 +160,7 @@ def octant_range_names(mod=5000):
     cnt[-1][row] = 'Octant Name'
     cnt[2][row] = 'Count of Rank 1 Mod Values'
 
-    for i in range(8):
+    for i in range(8):  # writing the scores of each octant value
         row = mrows + 6 + i
         cnt[1][row] = vals[i]
         cnt[-1][row] = octant_name_id_mapping[str(vals[i])]
@@ -166,6 +178,9 @@ def octant_range_names(mod=5000):
 
 
 mod = 5000
+if mod <= 0:
+    raise Exception("Value of mod should be positive")
+
 octant_range_names(mod)
 
 # This shall be the last lines of the code.
