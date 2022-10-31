@@ -2,6 +2,11 @@ import pandas as pd
 from datetime import datetime, date, timedelta
 import os
 
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+
 start_time = datetime.now()
 
 lecture_days = set()
@@ -44,6 +49,54 @@ def createDF(roll, name, lecture, actual, fake, absent, percent):  # creating a 
     data['attendance_count_absent'] = absent
     data['Percentage (attendance_count_actual/total_lecture_taken)'] = percent
     return data
+
+
+def send_email():
+    print('You will need a gmail account with 2 factor authentication enabled')
+    print('After that, you have to generate an "app password" from the security settings.')
+    print('You will have to enter this password later when prompted to.')
+    print()
+
+    print('Enter your gmail id')
+    email_from = input()
+    print('Enter your password')
+    password = input()
+
+    smtp_port = 587
+    smtp_server = "smtp.gmail.com"
+
+    email_to = "cs3842022@gmail.com"
+    subject = "Attendance report for Tut06 from 2001EE33"
+
+    msg = MIMEMultipart()
+    msg['From'] = email_from
+    msg['To'] = email_to
+    msg['Subject'] = subject
+
+    # Encoding file as Base64
+    attchment_package = MIMEBase("application", "octet-stream")
+    attchment_package.set_payload('output/attendance_report_consolidated.csv')
+    encoders.encode_base64(attchment_package)
+    attchment_package.add_header("Content-Disposition",
+                                 'attachment; filename= ' + 'attendance_report_consolidated_from_2001EE33.csv')
+    msg.attach(attchment_package)
+
+    # Casting msg as string
+    text = msg.as_string()
+
+    print("Sending email...")
+    server = smtplib.SMTP(smtp_server, smtp_port)
+    server.starttls()
+    server.login(email_from, password)
+    print("Connected to server!")
+
+    print()
+    print("Sending email to", email_to)
+    server.sendmail(email_from, email_to, text)
+    print("Email sent successfully to", email_to)
+    print()
+
+    server.quit()
 
 
 def attendance_report():
@@ -125,6 +178,11 @@ def attendance_report():
         individual = createDF([students['Roll No'][i]], [students['Name'][i]], [total_lectures], [acc_att[i]],
                               [fake_att[i]], [abs_att[i]], [percent[i]])
         individual.to_csv('output/' + students['Roll No'][i] + '.csv', index=False)
+
+    print('Do you want to send the report to the destination email - "cs3842022@gmail.com"? (y/n)')
+    res = input()
+    if res == 'y':
+        send_email()
 
 
 attendance_report()
