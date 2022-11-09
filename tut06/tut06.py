@@ -21,7 +21,7 @@ def generate_lectures(timestamps):
     d = start
     sw = False
     while d <= end:  # generating all Mondays and Thursdays
-        day = d.strftime('%d/%m/%Y')
+        day = d.strftime('%d-%m-%Y')
         lecture_days.append(day)
         d += timedelta(days=3 if sw else 4)
         sw = not sw
@@ -31,7 +31,7 @@ def generate_lectures(timestamps):
 
 
 def during_class(time):  # checking if this time is valid or not
-    if time[11:13] == '14' or time[11:] == '15:00:00':
+    if time[11:13] == '14' or time[11:] == '15:00':
         return True
     return False
 
@@ -42,7 +42,7 @@ def attendance_report():
 
     students = pd.read_csv('input_registered_students.csv')
     attendance = pd.read_csv('input_attendance.csv')
-    generate_lectures(attendance['Timestamp'])  # generate all the lecture days
+    generate_lectures(attendance['Timestamp'])
 
     num_stud = len(students['Roll No'])
     num_att = len(attendance['Attendance'])
@@ -97,7 +97,7 @@ def attendance_report():
                 tot_real[roll_id] += 1
 
             acc_att[roll_id][day] = 1
-            abs_att[roll_id][day] = 0  # Absence is equated to 0 whenever a valid attendance is recorded
+            abs_att[roll_id][day] = 0   # Absence is equated to 0 whenever a valid attendance is recorded
 
         else:  # incrementing fake attendance if attendance is out of time
             fake_att[roll_id][day] += 1
@@ -105,7 +105,7 @@ def attendance_report():
     for i in range(num_stud):  # calculating percentage
         percentage.append(round(tot_real[i] * 100 / total_lectures, 2))
 
-    for i in range(num_stud):  # arranging a file for each student
+    for i in range(num_stud):   # arranging a file for each student
 
         roll = [students['Roll No'][i]] + [''] * total_lectures
         name = [students['Name'][i]] + [''] * total_lectures
