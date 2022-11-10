@@ -2,6 +2,11 @@ import pandas as pd
 from datetime import datetime, date, timedelta
 import os
 
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
+
 start_time = datetime.now()
 
 lecture_days = []
@@ -34,6 +39,59 @@ def during_class(time):  # checking if this time is valid or not
     if time[11:13] == '14' or time[11:] == '15:00':
         return True
     return False
+
+def send_email():
+    print('You will need a gmail account with 2 factor authentication enabled')
+    print('After that, you have to generate an "app password" from the security settings.')
+    print('You will have to enter this password later when prompted to.')
+    print()
+
+    # getting login credentials from the user
+
+    print('Enter your gmail id')
+    email_from = input()
+    print('Enter your password')
+    password = input()
+
+    # setting up the server
+
+    smtp_port = 587
+    smtp_server = "smtp.gmail.com"
+
+    # completing email details
+
+    email_to = "cs3842022@gmail.com"
+    subject = "Attendance report for Tut06 from 2001EE33"
+
+    msg = MIMEMultipart()
+    msg['From'] = email_from
+    msg['To'] = email_to
+    msg['Subject'] = subject
+
+    # Encoding file as Base64
+    attchment_package = MIMEBase("application", "octet-stream")
+    attchment_package.set_payload('output/attendance_report_consolidated.xlsx')
+    encoders.encode_base64(attchment_package)
+    attchment_package.add_header("Content-Disposition",
+                                 'attachment; filename= ' + 'attendance_report_consolidated_from_2001EE33.xlsx')
+    msg.attach(attchment_package)
+
+    # Casting msg as string
+    text = msg.as_string()
+
+    print("Sending email...")
+    server = smtplib.SMTP(smtp_server, smtp_port)
+    server.starttls()
+    server.login(email_from, password)
+    print("Connected to server!")
+
+    print()
+    print("Sending email to", email_to)
+    server.sendmail(email_from, email_to, text)
+    print("Email sent successfully to", email_to)
+    print()
+
+    server.quit()
 
 
 def attendance_report():
@@ -162,6 +220,10 @@ def attendance_report():
 
     consolidated.to_excel('output/attendance_report_consolidated.xlsx', index=False)
 
+    print('Do you want to send the report to the destination email - "cs3842022@gmail.com"? (y/n)')
+    res = input()
+    if res == 'y':
+        send_email()
 
 attendance_report()
 
