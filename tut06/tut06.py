@@ -40,15 +40,19 @@ def during_class(time):  # checking if this time is valid or not
         return True
     return False
 
+
 def send_email():
     print('You will need a gmail account with 2 factor authentication enabled')
     print('After that, you have to generate an "app password" from the security settings.')
     print('You will have to enter this password later when prompted to.')
     print()
+    print(
+        'You can also use the Zimbra account and password. For that you will have to change the code, and comment and uncomment the respective parts')
+    print()
 
     # getting login credentials from the user
 
-    print('Enter your gmail id')
+    print('Enter your email id')
     email_from = input()
     print('Enter your password')
     password = input()
@@ -57,6 +61,8 @@ def send_email():
 
     smtp_port = 587
     smtp_server = "smtp.gmail.com"
+    # smtp_server = "mail.iitp.ac.in"
+    # smtp_server = "stud.iitp.ac.in"
 
     # completing email details
 
@@ -155,7 +161,7 @@ def attendance_report():
                 tot_real[roll_id] += 1
 
             acc_att[roll_id][day] = 1
-            abs_att[roll_id][day] = 0   # Absence is equated to 0 whenever a valid attendance is recorded
+            abs_att[roll_id][day] = 0  # Absence is equated to 0 whenever a valid attendance is recorded
 
         else:  # incrementing fake attendance if attendance is out of time
             fake_att[roll_id][day] += 1
@@ -163,7 +169,7 @@ def attendance_report():
     for i in range(num_stud):  # calculating percentage
         percentage.append(round(tot_real[i] * 100 / total_lectures, 2))
 
-    for i in range(num_stud):   # arranging a file for each student
+    for i in range(num_stud):  # arranging a file for each student
 
         roll = [students['Roll No'][i]] + [''] * total_lectures
         name = [students['Name'][i]] + [''] * total_lectures
@@ -224,6 +230,7 @@ def attendance_report():
     res = input()
     if res == 'y':
         send_email()
+
 
 attendance_report()
 
