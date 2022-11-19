@@ -7,28 +7,33 @@ start_time = datetime.now()
 
 
 def cleanse(name: str):
-    if name[-1] == ')':
+    if name[-1] == ')':  # remove the (c) and (w) from player names
         name = name[:-3]
     return name
 
 
 def play_inning(inn: list[str], batsmen: list[str], bowlers: list[str], row, sheet):
+    # common statistics for bowlers and batsmen
     balls = {}
     runs = {}
+
+    # statistics for batsmen
     fours = {}
     sixes = {}
     status = {}
 
+    # statistics for bowlers
     wickets = {}
     nb = {}
     maiden = {}
     wd = {}
     streak = {}
 
+    # overall statistics
     byes = lbs = wide = nbs = pens = 0
     tot_runs = tot_wkts = tot_balls = 0
 
-    fow = []
+    fow = []  # fall of wickets
 
     for player in batsmen:
         balls[player] = runs[player] = fours[player] = sixes[player] = 0
@@ -42,11 +47,11 @@ def play_inning(inn: list[str], batsmen: list[str], bowlers: list[str], row, she
 
     for player in players:
         alt_names[cleanse(player)] = player
-        for names in re.split(' ', player):
+        for names in re.split(' ', player):  # capturing the first and last names and mapping it to the full names
             alt_names[cleanse(names)] = player
 
     for step in inn:
-        if step == '\n':
+        if step == '\n':  # if it's an empty line, simply skip it
             continue
 
         bowler = alt_names[step[step.find(' ') + 1:step.find('to') - 1]]
@@ -56,6 +61,8 @@ def play_inning(inn: list[str], batsmen: list[str], bowlers: list[str], row, she
         run = 0
 
         status[batsman] = 'not out'
+
+        # examining the characters and figuring out what is happening during a particular ball
 
         if run_char == 'n':
             streak[bowler] += 1
@@ -117,6 +124,8 @@ def play_inning(inn: list[str], batsmen: list[str], bowlers: list[str], row, she
 
                 run += int(run_char)
 
+        # making appropriate adjustments to our statistics
+
         runs[batsman] += run
         runs[bowler] += run
         tot_runs += run
@@ -127,6 +136,8 @@ def play_inning(inn: list[str], batsmen: list[str], bowlers: list[str], row, she
 
         if step[2] == '6' and streak[bowler] >= 6:
             maiden[bowler] += 1
+
+    # making a record for the batting table
 
     sheet.cell(row=row, column=1).value = 'Batter'
     sheet.cell(row=row, column=3).value = 'R'
@@ -177,6 +188,8 @@ def play_inning(inn: list[str], batsmen: list[str], bowlers: list[str], row, she
         c += 1
     row += 2
 
+    # making a record for the bowling table
+
     sheet.cell(row=row, column=1).value = 'Bowler'
     sheet.cell(row=row, column=2).value = 'O'
     sheet.cell(row=row, column=3).value = 'M'
@@ -204,25 +217,18 @@ def play_inning(inn: list[str], batsmen: list[str], bowlers: list[str], row, she
     return row + 2
 
 
-def find_player(team, c_w):
-    pos = team.find(c_w)  # finding the occurence of the (c) or (w)
-    st = team.rfind(',', 0, pos)  # finding the last occurence of a comma
-    if st == -1:
-        st = team.find(':')  # if no comma is found, then the player here is the first player
-    return team[st + 2:pos - 1]
-
-
 def scorecard():
     file_team = open("teams.txt", "r")
     teams = file_team.readlines()
 
+    # replacing ':' with ',' for easier detection of players
     pak_team = re.sub(':', ',', teams[0][:-1])
     ind_team = re.sub(':', ',', teams[2][:-1])
 
     pak_players = re.split(', ', pak_team)
-    del pak_players[0]
+    del pak_players[0]  # removing the first part of the split since it's not a player
     ind_players = re.split(', ', ind_team)
-    del ind_players[0]
+    del ind_players[0]  # removing the first part of the split since it's not a player
 
     pak_inn_f = open('pak_inns1.txt', 'r')
     pak_inn = pak_inn_f.readlines()
@@ -232,14 +238,15 @@ def scorecard():
     wb = Workbook()
     sheet = wb.active
     sheet.cell(row=1, column=1).value = 'Pakistan Innings'
-    row = play_inning(pak_inn, pak_players, ind_players, 2, sheet)
+    row = play_inning(pak_inn, pak_players, ind_players, 2, sheet)  # run Pakistan's innings
     sheet.cell(row=row, column=1).value = 'India Innings'
-    play_inning(ind_inn, ind_players, pak_players, row + 1, sheet)
+    play_inning(ind_inn, ind_players, pak_players, row + 1, sheet)  # run India's innings
 
     op = csv.writer(open('Scorecard.csv', 'w', newline=''))
-    for r in sheet.rows:
+    for r in sheet.rows:  # writing openpyxl rows onto a csv file
         op.writerow([cell.value for cell in r])
 
+    # closing the file objects
     file_team.close()
     pak_inn_f.close()
     ind_inn_f.close()
