@@ -98,7 +98,7 @@ def play_inning(inn: list[str], batsmen: list[str], bowlers: list[str], row, she
                 tot_runs += 1
                 continue
 
-            elif run_char == 'b' or run_char == 'l':  # in case of byes of lbs
+            elif run_char == 'b' or run_char == 'l':  # in case of byes or lbs
 
                 runc2 = step[pos + (6 if run_char == 'b' else 10)]
                 run2 = 0
@@ -106,7 +106,6 @@ def play_inning(inn: list[str], batsmen: list[str], bowlers: list[str], row, she
                     run2 = 4
                 else:
                     run2 = int(runc2)
-                runs[bowler] += run2
                 tot_runs += run2
                 if run_char == 'b':
                     byes += run2
