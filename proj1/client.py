@@ -6,9 +6,11 @@ import tkinter as tk
 from tkinter import scrolledtext
 from tkinter import Tk
 from tkinter import messagebox
+from tkinter import StringVar
 from tkinter.filedialog import askopenfilename
 import os
 import ntpath
+import time
 
 client_data = 'client_data'
 FILE_BUFFER_SIZE = 2048
@@ -333,6 +335,20 @@ def add_message(message, name):
         boxes[name].insert(tk.END, message + '\n')
         boxes[name].config(state=tk.DISABLED)
 
+        
+# typing indicator
+def toggle_typing_state(name):
+    if name in boxes.keys() and tk.Toplevel.winfo_exists(windows[name]):  # checking if the chat window is open
+        to_user_textboxes[name].config(state=tk.NORMAL)
+        prev_text = to_user_textboxes[name].cget('text')
+        new_text = prev_text
+        if prev_text.endswith('(...is typing)'):
+            new_text = new_text[:-14]
+        else:
+            new_text += '(...is typing)'
+            
+        to_user_textboxes[name].config(text = new_text, state=tk.DISABLED)
+
 
 # Send message or file using the send button
 def send_message(textbox, person, upload_button):
@@ -368,35 +384,78 @@ def send_file(person):
     f.close()
 
 
+to_user_textboxes = {}
 boxes = {}
 windows = {}
 
 
 def chat(person):
+    prev_typing_state = False
+    current_typing_state = False
+    double_click_flag = False
     # Opens tkinter window to select file for uploading
-    def upload_file():
-        if not is_connected:
-            messagebox.showerror("Host Not Found", "Please connect to a server first")
-            return
+    
+    def mouse_click(event):
+        upload_button.after(300, mouse_action, event)
 
-        Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
+    def double_click(event):
+        nonlocal double_click_flag
+        double_click_flag = True
 
-        filename = askopenfilename()  # show an "Open" dialog box and return the path to the selected file
-        if not filename:
-            return
+    def mouse_action(event):
+        nonlocal double_click_flag
+        if double_click_flag:
+            print('double mouse click event')
+            cancel_uploaded_file(0)
+            double_click_flag = False
+        else:
+            # Upload File
+            print('single mouse click event')
+            if not is_connected:
+                messagebox.showerror("Host Not Found", "Please connect to a server first")
+                return
 
-        # upload_button.config(state=tk.DISABLED)
-        button_text = ntpath.basename(filename)
+            Tk().withdraw()  # we don't want a full GUI, so keep the root window from appearing
 
-        global filepath
-        filepath = filename
-        print(filepath)
+            filename = askopenfilename()  # show an "Open" dialog box and return the path to the selected file
+            if not filename:
+                return
 
-        if len(button_text) > 6:
-            button_text = button_text[:4] + '...'
+            # upload_button.config(state=tk.DISABLED)
+            button_text = ntpath.basename(filename)
 
-        upload_button.config(text=button_text)
-        message_textbox.config(state=tk.DISABLED)
+            global filepath
+            filepath = filename
+            print(filepath)
+
+            if len(button_text) > 6:
+                button_text = button_text[:4] + '...'
+
+            upload_button.config(text=button_text)
+            message_textbox.config(state=tk.DISABLED)
+    
+    def cancel_uploaded_file(event):
+        upload_button.config(text='Upload')
+        message_textbox.config(state=tk.NORMAL)
+        
+        
+    # Callback to handle typing events
+    def typing_indicator_callback(sv):
+        nonlocal current_typing_state
+        nonlocal prev_typing_state
+        
+        content = sv.get()
+        if content == '':
+            current_typing_state = False
+        else:
+            current_typing_state = True
+        
+        if current_typing_state != prev_typing_state:
+            print('Changed')
+            # \! : Typing indicator command
+            client.sendall(f"\!{SEPARATOR}{username}{SEPARATOR}{person}".encode('utf-8'))
+            # pass # Send typing info to person
+        prev_typing_state = current_typing_state
 
     windows[person] = tk.Toplevel()
     window = windows[person]
@@ -420,11 +479,15 @@ def chat(person):
     username_label = tk.Label(top_frame, text=person, font=FONT, bg=DARK_GREY, fg=WHITE, state=tk.DISABLED)
     username_label.pack(side=tk.LEFT, padx=10)
 
-    message_textbox = tk.Entry(bottom_frame, font=FONT, bg=MEDIUM_GREY, fg=WHITE, width=30)
+    sv = StringVar()
+    sv.trace("w", lambda name, index, mode, sv=sv: typing_indicator_callback(sv))
+    message_textbox = tk.Entry(bottom_frame, font=FONT, bg=MEDIUM_GREY, fg=WHITE, width=30, textvariable=sv)
     message_textbox.pack(side=tk.LEFT, padx=10)
+    message_textbox.pack()
 
-    upload_button = tk.Button(bottom_frame, text="Upload", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE,
-                              command=upload_file)
+    upload_button = tk.Button(bottom_frame, text="Upload", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE)
+    upload_button.bind('<Button-1>', mouse_click)             # bind left mouse clicks
+    upload_button.bind('<Double-Button-1>', double_click)    # bind left double mouse click
     upload_button.pack(side=tk.LEFT, padx=10)
 
     message_button = tk.Button(bottom_frame, text="Send", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE,
@@ -438,6 +501,7 @@ def chat(person):
     message_box.pack(side=tk.TOP)
 
     boxes[person] = message_box
+    to_user_textboxes[person] = username_label
 
     client.sendall(('\?' + person).encode())  # to ask for chat and file history with a person
 
@@ -472,12 +536,14 @@ def new_user_rituals(user):
     name_frame = tk.Frame(root, width=600, height=100, bg=DARK_GREY)
     name_frame.grid(row=num_users, column=0, sticky=tk.NSEW)
 
-    name_label = tk.Label(name_frame, text=user, font=FONT, bg=DARK_GREY, fg=WHITE)
+    name_label = tk.Label(name_frame, text=user, font=FONT, bg=DARK_GREY, fg=OFFLINE_BLUE)
     name_label.pack(side=tk.LEFT, padx=10)
 
     name_button = tk.Button(name_frame, text="Chat", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE,
                             command=lambda person=user: chat(user))
     name_button.pack(side=tk.LEFT, padx=15)
+
+    friendlist[user] = name_label
 
 
 def new_online_rituals(user):
@@ -500,7 +566,11 @@ def listen_for_messages_from_server(client):
         # print("In Body: ")
         # print(message)
         if message != '':
-            if SEPARATOR in message:
+            if message[:2] == '\!':
+                # This message will directly go to the to_user client, so no need to read the contents
+                _, from_user = message.split('\!')                
+                toggle_typing_state(from_user)
+            elif SEPARATOR in message:
                 print("Received a file")
                 # message contains filename and filesize separated by separator
                 filename, from_user, to_user = message.split(SEPARATOR, 2)

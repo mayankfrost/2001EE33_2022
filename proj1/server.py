@@ -4,6 +4,8 @@ import threading
 import os
 import ntpath
 import time
+import random
+import emails
 
 registered_names = ["JACK", "TOM", "PAUL"]
 passwords = {"JACK": "JACK1", "TOM": "TOM1", "PAUL": "PAUL1"}
@@ -43,9 +45,9 @@ def is_working():
             if not still_conn[user]:
                 to_remove.append(user)
 
-        print(online)
-        print(to_remove)
-        print("conn", still_conn)
+        # print(online)
+        # print(to_remove)
+        # print("conn", still_conn)
 
         for user in to_remove:
             online.remove(user)
@@ -90,10 +92,13 @@ def send_history(client, from_user, message):
 def new_user_rituals(user):
     for name in registered_names:
         history[name][user] = ''
+        file_cache[name][user] = []
 
     history[user] = {}
+    file_cache[user] = {}
     for name in registered_names:
         history[user][name] = ''
+        file_cache[user][name] = []
 
     for name in online:
         client_id[name].sendall(('^' + user).encode())
@@ -106,8 +111,8 @@ def send_code(email):
     global unique_code
     code = random.randint(0, 9999999999999999)
     unique_code[email] = str(code).zfill(16)
-    unique_code[email] = "1"
-    # emails.send_email(email, unique_code[email])
+    # unique_code[email] = "1"
+    emails.send_email(email, unique_code[email])
 
 
 def create_acct(message):
@@ -140,6 +145,12 @@ def listen_for_messages(client):
         if message != '':
             if message[:2] == '\?':
                 send_history(client, username, message)
+            elif message[:2] == '\!':
+                _, from_user, to_user = message.split(SEPARATOR)
+                if not to_user in online:
+                    continue
+                msg = '\!' + from_user
+                client_id[to_user].sendall(msg.encode('utf-8'))
             elif SEPARATOR in message:
                 print("Received a file")
                 # message contains filename and filesize separated by separator
