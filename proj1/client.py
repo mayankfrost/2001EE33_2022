@@ -1,7 +1,6 @@
 # import required modules
 import socket
 import threading
-import time
 import tkinter as tk
 from tkinter import scrolledtext
 from tkinter import Tk
@@ -18,6 +17,7 @@ filepath = 'send_file.txt'
 MSG_DELIMITER = '\!?^'
 SEPARATOR = '<SEPARATOR>'
 ENDTAG = '<ENDTAG>'
+ALL_USERS = '<%All%>'
 is_connected = False  # Set to true when connected to server
 
 HOST = '127.0.0.1'
@@ -60,9 +60,23 @@ def send_signals():
             return
 
 
-def send_email(mode):
+def send_email(mode, box):
     email = emb.get() if mode else emf.get()
-    client.sendall(('@' + email).encode())
+    client.sendall(('@' + str(mode) + email).encode())
+
+    while 1:
+        msg = client.recv(FILE_BUFFER_SIZE).decode('utf-8')
+
+        if msg == 'PASS':
+            messagebox.showinfo('Email sent.', 'Fill the OTP from the email in the box below.')
+            box.config(state=tk.DISABLED)
+        else:
+            if mode == 1:
+                messagebox.showerror('Email already used', 'Try a different email')
+            else:
+                messagebox.showerror('Wrong Email!', 'Use an email which is already registered')
+
+        break
 
 
 def register_account():
@@ -72,6 +86,18 @@ def register_account():
     code = cdb.get()
     client.sendall(('!' + email + '~' + user + '~' + password + '~' + code).encode())
 
+    while 1:
+        msg = client.recv(FILE_BUFFER_SIZE).decode('utf-8')
+
+        if msg == 'PASS':
+            messagebox.showinfo('Account Registered!', 'Fill the credentials on the main window to log in')
+        elif msg=='USED USER':
+            messagebox.showerror('Registration Failed!', 'Username is already used up.')
+        else:
+            messagebox.showerror('Registration Failed!', 'OTP Entered is wrong.')
+
+        break
+
 
 def reset_password():
     email = emf.get()
@@ -79,6 +105,16 @@ def reset_password():
     password = pwf.get()
     code = cdf.get()
     client.sendall(('*' + email + '~' + user + '~' + password + '~' + code).encode())
+
+    while 1:
+        msg = client.recv(FILE_BUFFER_SIZE).decode('utf-8')
+
+        if msg == 'PASS':
+            messagebox.showinfo('Password changed!', 'Fill the new credentials on the main window to log in')
+        else:
+            messagebox.showerror('Process Failed!', 'OTP Entered is wrong.')
+
+        break
 
 
 def create_account():
@@ -106,7 +142,7 @@ def create_account():
     emb = email_box
 
     code_button = tk.Button(email_frame, text="GET UNIQUE CODE", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE,
-                            command=lambda: send_email(1))
+                            command=lambda box=email_box: send_email(1, box))
     code_button.pack(side=tk.LEFT, padx=15)
 
     user_frame = tk.Frame(window, width=600, height=100, bg=DARK_GREY)
@@ -173,7 +209,7 @@ def forgot():
     emf = email_box
 
     code_button = tk.Button(email_frame, text="GET UNIQUE CODE", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE,
-                            command=lambda email=email_box.get(): send_email(email))
+                            command=lambda box=email_box: send_email(0, box))
     code_button.pack(side=tk.LEFT, padx=15)
 
     user_frame = tk.Frame(window, width=600, height=100, bg=DARK_GREY)
@@ -239,6 +275,9 @@ def connect():
 
         if message == '':
             print("No users registered as of now")
+        elif message == 'WRONG CREDENTIALS':
+            messagebox.showerror('LOGIN FAIL', 'Incorrect username or password!')
+            return
         else:
             names_list, online_set = message.split('^')
             names_list = names_list.split('~')
@@ -259,9 +298,20 @@ def connect():
     for i in range(6):
         root.grid_rowconfigure(i + 1, weight=1)
 
+
+    name_frame = tk.Frame(root, width=600, height=100, bg=DARK_GREY)
+    name_frame.grid(row=1, column=0, sticky=tk.NSEW)
+
+    name_label = tk.Label(name_frame, text='GROUP CHAT', font=FONT, bg=DARK_GREY, fg = WHITE)
+    name_label.pack(side=tk.LEFT, padx=10)
+
+    name_button = tk.Button(name_frame, text="Chat", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE,
+                            command=lambda person=ALL_USERS: chat(person))
+    name_button.pack(side=tk.LEFT, padx=15)
+
     for i in range(len(names_list)):
         name_frame = tk.Frame(root, width=600, height=100, bg=DARK_GREY)
-        name_frame.grid(row=i + 1, column=0, sticky=tk.NSEW)
+        name_frame.grid(row=i + 2, column=0, sticky=tk.NSEW)
 
         name_label = tk.Label(name_frame, text=names_list[i], font=FONT, bg=DARK_GREY,
                               fg=GREEN if names_list[i] in online_set else OFFLINE_BLUE)
@@ -328,26 +378,38 @@ grid_rows_to_destroy = [password_frame, forgot_frame, create_frame]
 
 username = ""
 
-
 def add_message(message, name):
     if name in boxes.keys() and tk.Toplevel.winfo_exists(windows[name]):  # checking if the chat window is open
         boxes[name].config(state=tk.NORMAL)
         boxes[name].insert(tk.END, message + '\n')
         boxes[name].config(state=tk.DISABLED)
 
-        
+
 # typing indicator
-def toggle_typing_state(name):
+def toggle_typing_state(name, group_chat_window = False):
+    if group_chat_window:
+        # Will be implemented later
+        return
+    
+    username = name
+    if group_chat_window:
+        username = name.split(SEPARATOR)[0]
+        print("Group Chat window, typing: " + username)
+        name = ALL_USERS
+    
     if name in boxes.keys() and tk.Toplevel.winfo_exists(windows[name]):  # checking if the chat window is open
         to_user_textboxes[name].config(state=tk.NORMAL)
         prev_text = to_user_textboxes[name].cget('text')
         new_text = prev_text
-        if prev_text.endswith('(...is typing)'):
-            new_text = new_text[:-14]
+        if prev_text.endswith('(...is typing)') and prev_text.startswith(username):
+            if group_chat_window:
+                new_text = 'Group Chat'
+            else:
+                new_text = username
         else:
-            new_text += '(...is typing)'
-            
-        to_user_textboxes[name].config(text = new_text, state=tk.DISABLED)
+            new_text = username + '(...is typing)'
+
+        to_user_textboxes[name].config(text=new_text, state=tk.DISABLED)
 
 
 # Send message or file using the send button
@@ -393,8 +455,9 @@ def chat(person):
     prev_typing_state = False
     current_typing_state = False
     double_click_flag = False
+
     # Opens tkinter window to select file for uploading
-    
+
     def mouse_click(event):
         upload_button.after(300, mouse_action, event)
 
@@ -433,23 +496,22 @@ def chat(person):
 
             upload_button.config(text=button_text)
             message_textbox.config(state=tk.DISABLED)
-    
+
     def cancel_uploaded_file(event):
         upload_button.config(text='Upload')
         message_textbox.config(state=tk.NORMAL)
-        
-        
+
     # Callback to handle typing events
     def typing_indicator_callback(sv):
         nonlocal current_typing_state
         nonlocal prev_typing_state
-        
+
         content = sv.get()
         if content == '':
             current_typing_state = False
         else:
             current_typing_state = True
-        
+
         if current_typing_state != prev_typing_state:
             print('Changed')
             # \! : Typing indicator command
@@ -476,7 +538,10 @@ def chat(person):
     bottom_frame = tk.Frame(window, width=600, height=100, bg=DARK_GREY)
     bottom_frame.grid(row=2, column=0, sticky=tk.NSEW)
 
-    username_label = tk.Label(top_frame, text=person, font=FONT, bg=DARK_GREY, fg=WHITE, state=tk.DISABLED)
+    username_text = person
+    if person == ALL_USERS:
+        username_text = 'Group Chat'
+    username_label = tk.Label(top_frame, text=username_text, font=FONT, bg=DARK_GREY, fg=WHITE, state=tk.DISABLED)
     username_label.pack(side=tk.LEFT, padx=10)
 
     sv = StringVar()
@@ -486,8 +551,8 @@ def chat(person):
     message_textbox.pack()
 
     upload_button = tk.Button(bottom_frame, text="Upload", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE)
-    upload_button.bind('<Button-1>', mouse_click)             # bind left mouse clicks
-    upload_button.bind('<Double-Button-1>', double_click)    # bind left double mouse click
+    upload_button.bind('<Button-1>', mouse_click)  # bind left mouse clicks
+    upload_button.bind('<Double-Button-1>', double_click)  # bind left double mouse click
     upload_button.pack(side=tk.LEFT, padx=10)
 
     message_button = tk.Button(bottom_frame, text="Send", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE,
@@ -534,7 +599,7 @@ def new_user_rituals(user):
     global num_users
     num_users += 1
     name_frame = tk.Frame(root, width=600, height=100, bg=DARK_GREY)
-    name_frame.grid(row=num_users, column=0, sticky=tk.NSEW)
+    name_frame.grid(row=num_users+1, column=0, sticky=tk.NSEW)
 
     name_label = tk.Label(name_frame, text=user, font=FONT, bg=DARK_GREY, fg=OFFLINE_BLUE)
     name_label.pack(side=tk.LEFT, padx=10)
@@ -568,8 +633,12 @@ def listen_for_messages_from_server(client):
         if message != '':
             if message[:2] == '\!':
                 # This message will directly go to the to_user client, so no need to read the contents
-                _, from_user = message.split('\!')                
-                toggle_typing_state(from_user)
+                _, from_user = message.split('\!')
+                
+                if SEPARATOR in from_user:
+                    toggle_typing_state(from_user, True)
+                
+                toggle_typing_state(from_user, False)
             elif SEPARATOR in message:
                 print("Received a file")
                 # message contains filename and filesize separated by separator
@@ -590,8 +659,9 @@ def listen_for_messages_from_server(client):
                 new_offline_rituals(message[1:])
             else:
                 try:
-                    username = message.split("~")[0]
-                    content = message.split('~')[1]
+                    # username = message.split("~")[0]
+                    # content = message.split('~')[1]
+                    username, content = message.split('~', 1)
                 except:
                     continue
 
